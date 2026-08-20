@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include <string>
-#include <memory>
 
 class LoadObject {
 public:
@@ -16,5 +15,5 @@ class LoadGroup {
 public:
 	void Write(FILE* file);
 private:
-	std::vector<std::unique_ptr<LoadObject>> m_LoadObjects;
+	std::vector<LoadObject> m_LoadObjects;
 };

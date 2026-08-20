@@ -48,14 +48,14 @@ void LoadObject::Write(FILE* file) {
 void LoadGroup::Write(FILE* file) {
 	auto beginPos = ftell(file);
 	//magic
-	const char magic[] = { 'P','3','D', 0xFF, 0x0C, 0x00, 0x00, 0x00 };
+	const unsigned char magic[] = { 'P','3','D', 0xFF, 0x0C, 0x00, 0x00, 0x00 };
 	fwrite(magic, 1, sizeof(magic), file);
 	auto sizePos = ftell(file);
 	// size placeholder
 	const int32_t placeHolder = 0;
 	fwrite(&placeHolder, sizeof(int32_t), 1, file);
-	for (const auto& loadObject : m_LoadObjects) {
-		loadObject->Write(file);
+	for (auto& loadObject : m_LoadObjects) {
+		loadObject.Write(file);
 	}
 	auto endPos = ftell(file);
 	fseek(file, sizePos, SEEK_SET);
