@@ -17,19 +17,26 @@ static int skinCount = 0;
 
 typedef HANDLE(__stdcall* CREATEFILEW)(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
 typedef void* (__thiscall* CHARACTERMANAGERCTOR)(void* self);
+typedef void* (__cdecl* SFALLOC)(size_t size, int type);
 static CREATEFILEW fpCreateFileW = NULL;
 static CHARACTERMANAGERCTOR fpCharacterManagerCtor = NULL;
+static SFALLOC fpSF_Alloc = NULL;
+
+static bool doAllocHook = false;
+
+static void* __cdecl SF_Alloc_Hook(size_t size, int type) {
+	if (doAllocHook) {
+		doAllocHook = false;
+		size = skinCount * 4;
+	}
+	return fpSF_Alloc(size, type);
+}
 
 static void* __fastcall CharacterManagerCtor_Hook(void* self, void* _) {
-
+	doAllocHook = true;
 	void* ret = fpCharacterManagerCtor(self);
-	// Original allocates a vector of fixed size for player skins. Can only contain 16 max. We reallocate here to increase the limit!
 	size_t skinAllocSize = skinCount * 4;
-	// TODO: maybe free the original alloc?
-	void* skinAlloc = SF_Alloc(skinAllocSize, 0x9);
-	// Set start and end pointers
-	(*(void**)((DWORD)ret + 0x8)) = skinAlloc;
-	(*(void**)((DWORD)ret + 0xC)) = skinAlloc;
+	void* skinAlloc = (*(void**)((DWORD)ret + 0xC));
 	(*(void**)((DWORD)ret + 0x10)) = (void*)((DWORD)skinAlloc + skinAllocSize);
 	return ret;
 }
@@ -156,6 +163,15 @@ void Core::Initialize() {
 		return;
 	}
 	if (MH_EnableHook(Addresses::CharacterManagerCtor) != MH_OK)
+	{
+		return;
+	}
+	if (MH_CreateHook(Addresses::ScarfaceAlloc, &SF_Alloc_Hook,
+		reinterpret_cast<LPVOID*>(&fpSF_Alloc)) != MH_OK)
+	{
+		return;
+	}
+	if (MH_EnableHook(Addresses::ScarfaceAlloc) != MH_OK)
 	{
 		return;
 	}
