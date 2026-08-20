@@ -15,7 +15,6 @@ BOOL WINAPI DllMain(HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
         DisableThreadLibraryCalls(hModule);
-		printf("DLL loaded successfully.\n");
 		coreInstance = std::make_unique<Core>();
         coreInstance->Initialize();
         break;

@@ -14,6 +14,5 @@ private:
 class LoadGroup {
 public:
 	void Write(FILE* file);
-private:
 	std::vector<LoadObject> m_LoadObjects;
 };
