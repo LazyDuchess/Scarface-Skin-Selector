@@ -28,6 +28,7 @@ static void* __cdecl SF_Alloc_Hook(size_t size, int type) {
 	if (doAllocHook) {
 		doAllocHook = false;
 		size = skinCount * 4;
+		return malloc(size);
 	}
 	return fpSF_Alloc(size, type);
 }
@@ -125,7 +126,6 @@ static void CacheLoadGroup() {
 		loadGroup->m_LoadObjects.push_back(loadObject);
 	}
 	skinCount = loadGroup->m_LoadObjects.size();
-
 	EnsureDirectory(tempDir);
 	FILE* cacheFile = _wfopen(loadGroupPath.c_str(), L"wb");
 	if (cacheFile) {
@@ -176,4 +176,5 @@ void Core::Initialize() {
 		return;
 	}
 	printf("Skin Selector Initialized!\n");
+	printf("%i Skins loaded.\n", skinCount);
 }
