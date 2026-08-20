@@ -1,5 +1,6 @@
 #include "res/loadgroup.h"
 
+// 4 byte aligned, not null terminated, byte length prefixed string writer.
 static void WritePaddedString(FILE* file, const std::string& str) {
 	int8_t length = static_cast<int8_t>(str.size());
 	int8_t pad = (4 - (length % 4)) % 4;

@@ -25,13 +25,16 @@ static void* __fastcall CharacterManagerCtor_Hook(void* self, void* _) {
 	void* ret = fpCharacterManagerCtor(self);
 	// Original allocates a vector of fixed size for player skins. Can only contain 16 max. We reallocate here to increase the limit!
 	size_t skinAllocSize = skinCount * 4;
+	// TODO: maybe free the original alloc?
 	void* skinAlloc = SF_Alloc(skinAllocSize, 0x9);
+	// Set start and end pointers
 	(*(void**)((DWORD)ret + 0x8)) = skinAlloc;
 	(*(void**)((DWORD)ret + 0xC)) = skinAlloc;
 	(*(void**)((DWORD)ret + 0x10)) = (void*)((DWORD)skinAlloc + skinAllocSize);
 	return ret;
 }
 
+// Hook whenever the game tries to call the vanilla loadgroups
 static HANDLE __stdcall CreateFileW_Hook(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
 	if (timesCalled < 2) {
 		if (dwDesiredAccess == GENERIC_READ && dwCreationDisposition == OPEN_EXISTING && wcscmp(lpFileName, originalLoadGroupPath.c_str()) == 0)
