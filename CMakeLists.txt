@@ -26,6 +26,8 @@ target_compile_definitions(SkinSelector
 target_sources(SkinSelector
     PRIVATE
         src/dllmain.cpp
+        src/Core.cpp
+        src/res/loadgroup.cpp
 )
 
 target_include_directories(SkinSelector
