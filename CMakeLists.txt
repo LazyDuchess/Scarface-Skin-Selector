@@ -27,7 +27,10 @@ target_sources(SkinSelector
     PRIVATE
         src/dllmain.cpp
         src/Core.cpp
+        src/Addresses.cpp
+        src/scan.cpp
         src/res/loadgroup.cpp
+        src/sf/engine.cpp
 )
 
 target_include_directories(SkinSelector

@@ -7,17 +7,38 @@
 #include "MinHook.h"
 #include <unordered_map>
 #include <algorithm>
+#include "Addresses.h"
+#include "sf/engine.h"
 
 static std::wstring loadGroupPath;
 static std::wstring originalLoadGroupPath;
+static int timesCalled = 0;
+static int skinCount = 0;
 
 typedef HANDLE(__stdcall* CREATEFILEW)(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+typedef void* (__thiscall* CHARACTERMANAGERCTOR)(void* self);
 static CREATEFILEW fpCreateFileW = NULL;
+static CHARACTERMANAGERCTOR fpCharacterManagerCtor = NULL;
+
+static void* __fastcall CharacterManagerCtor_Hook(void* self, void* _) {
+
+	void* ret = fpCharacterManagerCtor(self);
+	// Original allocates a vector of fixed size for player skins. Can only contain 16 max. We reallocate here to increase the limit!
+	size_t skinAllocSize = skinCount * 4;
+	void* skinAlloc = SF_Alloc(skinAllocSize, 0x9);
+	(*(void**)((DWORD)ret + 0x8)) = skinAlloc;
+	(*(void**)((DWORD)ret + 0xC)) = skinAlloc;
+	(*(void**)((DWORD)ret + 0x10)) = (void*)((DWORD)skinAlloc + skinAllocSize);
+	return ret;
+}
 
 static HANDLE __stdcall CreateFileW_Hook(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
-	if (dwDesiredAccess == GENERIC_READ && dwCreationDisposition == OPEN_EXISTING && wcscmp(lpFileName, originalLoadGroupPath.c_str()) == 0)
-	{
-		return fpCreateFileW(loadGroupPath.c_str(), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+	if (timesCalled < 2) {
+		if (dwDesiredAccess == GENERIC_READ && dwCreationDisposition == OPEN_EXISTING && wcscmp(lpFileName, originalLoadGroupPath.c_str()) == 0)
+		{
+			timesCalled++;
+			return fpCreateFileW(loadGroupPath.c_str(), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+		}
 	}
 	return fpCreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 }
@@ -93,6 +114,7 @@ static void CacheLoadGroup() {
 	for (const auto& [name, loadObject] : vanillaSkins) {
 		loadGroup->m_LoadObjects.push_back(loadObject);
 	}
+	skinCount = loadGroup->m_LoadObjects.size();
 
 	EnsureDirectory(tempDir);
 	FILE* cacheFile = _wfopen(loadGroupPath.c_str(), L"wb");
@@ -108,6 +130,10 @@ static void CacheLoadGroup() {
 
 void Core::Initialize() {
 	CacheLoadGroup();
+	if (!Addresses::Initialize())
+	{
+		return;
+	}
 	if (MH_Initialize() != MH_OK)
 		return;
 	HMODULE kernelBase = GetModuleHandle("KERNELBASE.DLL");
@@ -118,6 +144,15 @@ void Core::Initialize() {
 		return;
 	}
 	if (MH_EnableHook(fileCreateProc) != MH_OK)
+	{
+		return;
+	}
+	if (MH_CreateHook(Addresses::CharacterManagerCtor, &CharacterManagerCtor_Hook,
+		reinterpret_cast<LPVOID*>(&fpCharacterManagerCtor)) != MH_OK)
+	{
+		return;
+	}
+	if (MH_EnableHook(Addresses::CharacterManagerCtor) != MH_OK)
 	{
 		return;
 	}
