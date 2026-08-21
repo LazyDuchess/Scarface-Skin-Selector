@@ -45,6 +45,35 @@ namespace Addresses {
 	};
 	static char ScarfaceAllocLookupMask[] = "xxxxxxxxxxxxxxxxx";
 
+	void* CM_SetMainCharacterPackage;
+	static char CM_SetMainCharacterPackageLookup[] = {
+		0x51,
+		0x57,
+		0x8B, 0x7C, 0x24, 0x0C,
+		0x85, 0xFF,
+		0x89, 0x4C, 0x24, 0x04,
+		0x0F, 0x84, 0xE3, 0x00, 0x00, 0x00,
+		0x80, 0x3F, 0x00,
+		0x0F, 0x84, 0xDA, 0x00, 0x00, 0x00,
+		0x55,
+		0x8B, 0x69, 0x0C,
+		0x56
+	};
+	static char CM_SetMainCharacterPackageLookupMask[] = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+	void* FindPackagePath;
+	static char FindPackagePathLookup[] = {
+		0x8B, 0x44, 0x24, 0x04,
+		0x66, 0x3D, 0xFF, 0xFF,
+		0x75, 0x03,
+		0x33, 0xC0,
+		0xC3,
+		0x84, 0xE4,
+		0x56,
+		0x57
+	};
+	static char FindPackagePathLookupMask[] = "xxxxxxxxxxxxxxxxx";
+
 	bool Initialize() {
 		HMODULE module = GetModuleHandleA(NULL);
 		char* modBase = (char*)module;
@@ -54,6 +83,8 @@ namespace Addresses {
 		int size = modInfo.SizeOfImage;
 		ADDRESS(CharacterManagerCtor, CharacterManagerCtorLookup);
 		ADDRESS(ScarfaceAlloc, ScarfaceAllocLookup);
+		ADDRESS(CM_SetMainCharacterPackage, CM_SetMainCharacterPackageLookup);
+		ADDRESS(FindPackagePath, FindPackagePathLookup);
 		return true;
 	}
 }

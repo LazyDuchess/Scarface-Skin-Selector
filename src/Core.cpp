@@ -9,6 +9,7 @@
 #include <algorithm>
 #include "Addresses.h"
 #include "sf/engine.h"
+#include "scan.h"
 
 static std::wstring loadGroupPath;
 static std::wstring originalLoadGroupPath;
@@ -18,22 +19,45 @@ static int skinCount = 0;
 typedef HANDLE(__stdcall* CREATEFILEW)(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
 typedef void* (__thiscall* CHARACTERMANAGERCTOR)(void* self);
 typedef void* (__cdecl* SFALLOC)(size_t size, int type);
+typedef char* (__cdecl* FINDPACKAGEPATH)(short resourceId);
+typedef void* (__thiscall* SETMAINCHARACTERPACKAGE)(void* self, char* name, bool unk);
+
 static CREATEFILEW fpCreateFileW = NULL;
 static CHARACTERMANAGERCTOR fpCharacterManagerCtor = NULL;
 static SFALLOC fpSF_Alloc = NULL;
+static FINDPACKAGEPATH fpFindPackagePath = NULL;
+static SETMAINCHARACTERPACKAGE fpSetMainCharacterPackage = NULL;
 
 static bool doAllocHook = false;
+
+static void* playerModelPool;
+static void* characterManagerInstance;
+
+static void __fastcall SetMainCharacterPackage_Hook(void* self, void* _, char* name, bool unk) {
+	printf("Switching to %s\n", name);
+	fpSetMainCharacterPackage(self, name, unk);
+}
+
+static char* __cdecl FindPackagePath_Hook(short resourceId) {
+	char* path = fpFindPackagePath(resourceId);
+	printf("Res %i: %s\n", resourceId, path);
+	return path;
+}
 
 static void* __cdecl SF_Alloc_Hook(size_t size, int type) {
 	if (doAllocHook) {
 		doAllocHook = false;
 		size = skinCount * 4;
-		return malloc(size);
+		void* alloc = malloc(size);
+		playerModelPool = alloc;
+		printf("Character pool ptr: %p\n", alloc);
+		return alloc;
 	}
 	return fpSF_Alloc(size, type);
 }
 
 static void* __fastcall CharacterManagerCtor_Hook(void* self, void* _) {
+	characterManagerInstance = self;
 	doAllocHook = true;
 	void* ret = fpCharacterManagerCtor(self);
 	size_t skinAllocSize = skinCount * 4;
@@ -104,6 +128,8 @@ static void CacheLoadGroup() {
 		{"MCP_WhiteSuitShadesTony", LoadObject("MCP_WhiteSuitShadesTony", "packages/characters/pc/MCP_WhiteSuitShadesTony.p3d")}
 	};
 
+	loadGroup->m_LoadObjects.emplace_back("DUMMY", "DUMMY");
+	/*
 	std::filesystem::path skinPath = std::filesystem::path(skinsDir);
 	for (const auto& entry : std::filesystem::recursive_directory_iterator(skinPath)) {
 		if (entry.is_regular_file()) {
@@ -120,7 +146,7 @@ static void CacheLoadGroup() {
 				loadGroup->m_LoadObjects.emplace_back(u8name, u8Path);
 			}
 		}
-	}
+	}*/
 
 	for (const auto& [name, loadObject] : vanillaSkins) {
 		loadGroup->m_LoadObjects.push_back(loadObject);
@@ -175,6 +201,26 @@ void Core::Initialize() {
 	{
 		return;
 	}
+	if (MH_CreateHook(Addresses::FindPackagePath, &FindPackagePath_Hook,
+		reinterpret_cast<LPVOID*>(&fpFindPackagePath)) != MH_OK)
+	{
+		return;
+	}
+	if (MH_EnableHook(Addresses::FindPackagePath) != MH_OK)
+	{
+		return;
+	}
+	if (MH_CreateHook(Addresses::CM_SetMainCharacterPackage, &SetMainCharacterPackage_Hook,
+		reinterpret_cast<LPVOID*>(&fpSetMainCharacterPackage)) != MH_OK)
+	{
+		return;
+	}
+	if (MH_EnableHook(Addresses::CM_SetMainCharacterPackage) != MH_OK)
+	{
+		return;
+	}
+	// Forces SetMainCharacterPackage to reload even if same character address selected.
+	Nop((BYTE*)((DWORD)Addresses::CM_SetMainCharacterPackage + 0x63), 6);
 	printf("Skin Selector Initialized!\n");
 	printf("%i Skins loaded.\n", skinCount);
 }
