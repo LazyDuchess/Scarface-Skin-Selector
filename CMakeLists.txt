@@ -32,6 +32,7 @@ target_sources(SkinSelector
         src/res/loadgroup.cpp
         src/sf/engine.cpp
         src/sf/packageref.cpp
+        src/sf/charactermanager.cpp
 )
 
 target_include_directories(SkinSelector
