@@ -10,6 +10,7 @@
 #include "Addresses.h"
 #include "sf/engine.h"
 #include "scan.h"
+#include "sf/packageref.h"
 
 static std::wstring loadGroupPath;
 static std::wstring originalLoadGroupPath;
@@ -32,6 +33,12 @@ static bool doAllocHook = false;
 
 static void* playerModelPool;
 static void* characterManagerInstance;
+
+static PackageRef* GetDummyPackageRef() {
+	if (playerModelPool == nullptr)
+		return nullptr;
+	return **(PackageRef***)(playerModelPool);
+}
 
 static void __fastcall SetMainCharacterPackage_Hook(void* self, void* _, char* name, bool unk) {
 	printf("Switching to %s\n", name);
