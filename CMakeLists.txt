@@ -31,6 +31,7 @@ target_sources(SkinSelector
         src/scan.cpp
         src/res/loadgroup.cpp
         src/sf/engine.cpp
+        src/sf/packageref.cpp
 )
 
 target_include_directories(SkinSelector
