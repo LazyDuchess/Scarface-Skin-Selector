@@ -244,9 +244,38 @@ static std::wstring GetGameDirectory() {
 	return L"";
 }
 
+const std::string iniPrevVanillaSkinKey = "PreviousVanillaSkin";
+const std::string iniNextVanillaSkinKey = "NextVanillaSkin";
+const std::string iniPrevCustomSkinKey = "PreviousCustomSkin";
+const std::string iniNextCustomSkinKey = "NextCustomSkin";
+
 static void CacheSkins() {
 	std::wstring gameDir = GetGameDirectory();
 	std::wstring skinsDir = gameDir + L"\\skins";
+	std::wstring iniDir = gameDir + L"\\SkinSelector.ini";
+
+	if (Exists(iniDir)) {
+		mINI::INIFile file(iniDir);
+		mINI::INIStructure ini;
+		file.read(ini);
+		auto keys = ini["Keys"];
+		if (keys.has(iniPrevVanillaSkinKey))
+		{
+			prevVanillaSkinKey = std::stoi(keys.get(iniPrevVanillaSkinKey), nullptr, 0);
+		}
+		if (keys.has(iniNextVanillaSkinKey))
+		{
+			nextVanillaSkinKey = std::stoi(keys.get(iniNextVanillaSkinKey), nullptr, 0);
+		}
+		if (keys.has(iniPrevCustomSkinKey))
+		{
+			prevCustomSkinKey = std::stoi(keys.get(iniPrevCustomSkinKey), nullptr, 0);
+		}
+		if (keys.has(iniNextCustomSkinKey))
+		{
+			nextCustomSkinKey = std::stoi(keys.get(iniNextCustomSkinKey), nullptr, 0);
+		}
+	}
 
 	if (!Exists(skinsDir)) return;
 
