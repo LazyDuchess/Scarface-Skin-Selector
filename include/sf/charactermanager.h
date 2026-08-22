@@ -4,4 +4,5 @@
 class CharacterManager {
 public:
 	PackageRef** GetMainCharacterPackage();
+	void SetMainCharacterPackage(char* packageName, bool unk);
 };

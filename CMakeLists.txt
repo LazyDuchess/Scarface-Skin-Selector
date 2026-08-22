@@ -29,7 +29,6 @@ target_sources(SkinSelector
         src/Core.cpp
         src/Addresses.cpp
         src/scan.cpp
-        src/res/loadgroup.cpp
         src/sf/engine.cpp
         src/sf/packageref.cpp
         src/sf/charactermanager.cpp

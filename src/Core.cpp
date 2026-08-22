@@ -1,6 +1,5 @@
 #include <Windows.h>
 #include "Core.h"
-#include "res/loadgroup.h"
 #include <memory>
 #include <iostream>
 #include <filesystem>
