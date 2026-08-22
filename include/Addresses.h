@@ -8,5 +8,6 @@ namespace Addresses {
 	extern void* FindPackagePath;
 	extern void* CM_GetMainCharacterPackage;
 	extern void* RenderGame;
+	extern void* ShowNotification;
 	bool Initialize();
 }

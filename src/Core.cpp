@@ -12,6 +12,7 @@
 #include "sf/packageref.h"
 #include "ini.h"
 #include "sf/charactermanager.h"
+#include "sf/notificationmanager.h"
 
 typedef void* (__thiscall* CHARACTERMANAGERCTOR)(CharacterManager* self);
 typedef void* (__cdecl* SFALLOC)(size_t size, int type);
@@ -19,6 +20,7 @@ typedef const char* (__cdecl* FINDPACKAGEPATH)(short resourceId);
 typedef void* (__thiscall* SETMAINCHARACTERPACKAGE)(CharacterManager* self, const char* name, bool unk);
 typedef const char* (__thiscall* GETMAINCHARACTERPACKAGE)(CharacterManager* self);
 typedef void* (__thiscall* RENDERGAME)(void* self);
+typedef void* (__thiscall* SHOWNOTIFICATION)(NotificationManager* self, int type, const char* str);
 
 static CHARACTERMANAGERCTOR fpCharacterManagerCtor = NULL;
 static SFALLOC fpSF_Alloc = NULL;
@@ -26,11 +28,13 @@ static FINDPACKAGEPATH fpFindPackagePath = NULL;
 static SETMAINCHARACTERPACKAGE fpSetMainCharacterPackage = NULL;
 static GETMAINCHARACTERPACKAGE fpGetMainCharacterPackage = NULL;
 static RENDERGAME fpRenderGame = NULL;
+static SHOWNOTIFICATION fpShowNotification = NULL;
 
 static bool doAllocHook = false;
 
 static void* playerModelPool;
 static CharacterManager* characterManagerInstance;
+static NotificationManager* notificationManagerInstance;
 
 static std::string currentPlayerModel = "";
 static std::string currentPlayerModelInternalName = "";
@@ -119,6 +123,11 @@ static int GetCurrentVanillaSkinIndex() {
 	return std::distance(vanillaSkins.begin(), it);
 }
 
+static void __fastcall ShowNotification_Hook(NotificationManager* self, void* _, int type, const char* str) {
+	notificationManagerInstance = self;
+	fpShowNotification(self, type, str);
+}
+
 static void __fastcall RenderGame_Hook(void* self, void* _) {
 	if (currentPlayerModel != "") {
 		if (wasKeyJustPressed(prevVanillaSkinKey)) {
@@ -127,6 +136,9 @@ static void __fastcall RenderGame_Hook(void* self, void* _) {
 			if (currentVanillaSkin < 0)
 				currentVanillaSkin = vanillaSkins.size() - 1;
 			characterManagerInstance->SetMainCharacterPackage(vanillaSkins[currentVanillaSkin].c_str(), false);
+			if (notificationManagerInstance != nullptr) {
+				notificationManagerInstance->ShowRawNotification(1, currentPlayerModel.c_str());
+			}
 		}
 		if (wasKeyJustPressed(nextVanillaSkinKey)) {
 			int currentVanillaSkin = GetCurrentVanillaSkinIndex();
@@ -134,6 +146,9 @@ static void __fastcall RenderGame_Hook(void* self, void* _) {
 			if (currentVanillaSkin >= vanillaSkins.size())
 				currentVanillaSkin = 0;
 			characterManagerInstance->SetMainCharacterPackage(vanillaSkins[currentVanillaSkin].c_str(), false);
+			if (notificationManagerInstance != nullptr) {
+				notificationManagerInstance->ShowRawNotification(1, currentPlayerModel.c_str());
+			}
 		}
 		if (customSkins.size() > 0) {
 			if (wasKeyJustPressed(prevCustomSkinKey)) {
@@ -142,6 +157,9 @@ static void __fastcall RenderGame_Hook(void* self, void* _) {
 				if (currentCustomSkin < 0)
 					currentCustomSkin = customSkins.size() - 1;
 				characterManagerInstance->SetMainCharacterPackage(customSkins[currentCustomSkin].c_str(), false);
+				if (notificationManagerInstance != nullptr) {
+					notificationManagerInstance->ShowRawNotification(1, currentPlayerModel.c_str());
+				}
 			}
 			if (wasKeyJustPressed(nextCustomSkinKey)) {
 				int currentCustomSkin = GetCurrentCustomSkinIndex();
@@ -149,6 +167,9 @@ static void __fastcall RenderGame_Hook(void* self, void* _) {
 				if (currentCustomSkin >= customSkins.size())
 					currentCustomSkin = 0;
 				characterManagerInstance->SetMainCharacterPackage(customSkins[currentCustomSkin].c_str(), false);
+				if (notificationManagerInstance != nullptr) {
+					notificationManagerInstance->ShowRawNotification(1, currentPlayerModel.c_str());
+				}
 			}
 		}
 	}
@@ -317,6 +338,15 @@ void Core::Initialize() {
 		return;
 	}
 	if (MH_EnableHook(Addresses::RenderGame) != MH_OK)
+	{
+		return;
+	}
+	if (MH_CreateHook(Addresses::ShowNotification, &ShowNotification_Hook,
+		reinterpret_cast<LPVOID*>(&fpShowNotification)) != MH_OK)
+	{
+		return;
+	}
+	if (MH_EnableHook(Addresses::ShowNotification) != MH_OK)
 	{
 		return;
 	}

@@ -32,6 +32,7 @@ target_sources(SkinSelector
         src/sf/engine.cpp
         src/sf/packageref.cpp
         src/sf/charactermanager.cpp
+        src/sf/notificationmanager.cpp
 )
 
 target_include_directories(SkinSelector
