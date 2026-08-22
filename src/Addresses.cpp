@@ -87,6 +87,24 @@ namespace Addresses {
 	};
 	static char CM_GetMainCharacterPackageLookupMask[] = "xxxxxxxxxxxxxxx";
 
+	void* RenderGame;
+	static char RenderGameLookup[] = {
+		0x56,
+		0x8B, 0xF1,
+		0xE8, 0x08, 0x7A, 0x00, 0x00,
+		0x8B, 0x8E, 0x18, 0x02, 0x00, 0x00,
+		0xE8, 0x7D, 0xE4, 0xFF, 0xFF,
+		0x8B, 0xCE,
+		0xE8, 0x96, 0xDC, 0x00, 0x00,
+		0x8B, 0xB6, 0x30, 0x02, 0x00, 0x00,
+		0x8B, 0x06,
+		0x56,
+		0xFF, 0x90, 0xA8, 0x00, 0x00, 0x00,
+		0x5E,
+		0xC3
+	};
+	static char RenderGameLookupMask[] = "xxxx????xxxxxxx????xxx????xxxxxxxxxxxxxxxxx";
+
 	bool Initialize() {
 		HMODULE module = GetModuleHandleA(NULL);
 		char* modBase = (char*)module;
@@ -99,6 +117,7 @@ namespace Addresses {
 		ADDRESS(CM_SetMainCharacterPackage, CM_SetMainCharacterPackageLookup);
 		ADDRESS(FindPackagePath, FindPackagePathLookup);
 		ADDRESS(CM_GetMainCharacterPackage, CM_GetMainCharacterPackageLookup);
+		ADDRESS(RenderGame, RenderGameLookup);
 		return true;
 	}
 }

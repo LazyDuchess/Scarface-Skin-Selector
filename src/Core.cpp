@@ -17,12 +17,14 @@ typedef void* (__cdecl* SFALLOC)(size_t size, int type);
 typedef const char* (__cdecl* FINDPACKAGEPATH)(short resourceId);
 typedef void* (__thiscall* SETMAINCHARACTERPACKAGE)(void* self, const char* name, bool unk);
 typedef const char* (__thiscall* GETMAINCHARACTERPACKAGE)(void* self);
+typedef void* (__thiscall* RENDERGAME)(void* self);
 
 static CHARACTERMANAGERCTOR fpCharacterManagerCtor = NULL;
 static SFALLOC fpSF_Alloc = NULL;
 static FINDPACKAGEPATH fpFindPackagePath = NULL;
 static SETMAINCHARACTERPACKAGE fpSetMainCharacterPackage = NULL;
 static GETMAINCHARACTERPACKAGE fpGetMainCharacterPackage = NULL;
+static RENDERGAME fpRenderGame = NULL;
 
 static bool doAllocHook = false;
 
@@ -58,6 +60,10 @@ static PackageRef* GetDummyPackageRef() {
 	if (playerModelPool == nullptr)
 		return nullptr;
 	return **(PackageRef***)(playerModelPool);
+}
+
+static void __fastcall RenderGame_Hook(void* self, void* _) {
+	fpRenderGame(self);
 }
 
 static const char* __fastcall GetMainCharacterPackage_Hook(void* self, void* _) {
@@ -210,6 +216,15 @@ void Core::Initialize() {
 		return;
 	}
 	if (MH_EnableHook(Addresses::CM_GetMainCharacterPackage) != MH_OK)
+	{
+		return;
+	}
+	if (MH_CreateHook(Addresses::RenderGame, &RenderGame_Hook,
+		reinterpret_cast<LPVOID*>(&fpRenderGame)) != MH_OK)
+	{
+		return;
+	}
+	if (MH_EnableHook(Addresses::RenderGame) != MH_OK)
 	{
 		return;
 	}
