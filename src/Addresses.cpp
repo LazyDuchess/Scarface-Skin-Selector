@@ -74,6 +74,19 @@ namespace Addresses {
 	};
 	static char FindPackagePathLookupMask[] = "xxxxxxxxxxxxxxxxx";
 
+	void* CM_GetMainCharacterPackage;
+	static char CM_GetMainCharacterPackageLookup[] = {
+		0x8B, 0x41, 0x18,
+		0x85, 0xC0,
+		0x74, 0x05,
+		0x8B, 0x00,
+		0x8B, 0x00,
+		0xC3,
+		0x33, 0xC0,
+		0xC3
+	};
+	static char CM_GetMainCharacterPackageLookupMask[] = "xxxxxxxxxxxxxxx";
+
 	bool Initialize() {
 		HMODULE module = GetModuleHandleA(NULL);
 		char* modBase = (char*)module;
@@ -85,6 +98,7 @@ namespace Addresses {
 		ADDRESS(ScarfaceAlloc, ScarfaceAllocLookup);
 		ADDRESS(CM_SetMainCharacterPackage, CM_SetMainCharacterPackageLookup);
 		ADDRESS(FindPackagePath, FindPackagePathLookup);
+		ADDRESS(CM_GetMainCharacterPackage, CM_GetMainCharacterPackageLookup);
 		return true;
 	}
 }

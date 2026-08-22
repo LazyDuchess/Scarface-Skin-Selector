@@ -10,16 +10,19 @@
 #include "sf/engine.h"
 #include "scan.h"
 #include "sf/packageref.h"
+#include "ini.h"
 
 typedef void* (__thiscall* CHARACTERMANAGERCTOR)(void* self);
 typedef void* (__cdecl* SFALLOC)(size_t size, int type);
 typedef const char* (__cdecl* FINDPACKAGEPATH)(short resourceId);
-typedef void* (__thiscall* SETMAINCHARACTERPACKAGE)(void* self, char* name, bool unk);
+typedef void* (__thiscall* SETMAINCHARACTERPACKAGE)(void* self, const char* name, bool unk);
+typedef const char* (__thiscall* GETMAINCHARACTERPACKAGE)(void* self);
 
 static CHARACTERMANAGERCTOR fpCharacterManagerCtor = NULL;
 static SFALLOC fpSF_Alloc = NULL;
 static FINDPACKAGEPATH fpFindPackagePath = NULL;
 static SETMAINCHARACTERPACKAGE fpSetMainCharacterPackage = NULL;
+static GETMAINCHARACTERPACKAGE fpGetMainCharacterPackage = NULL;
 
 static bool doAllocHook = false;
 
@@ -27,6 +30,7 @@ static void* playerModelPool;
 static void* characterManagerInstance;
 
 static std::string currentPlayerModel = "";
+static std::string currentPlayerModelInternalName = "";
 
 static std::unordered_map<std::string, std::string> skins = {
 		{"MCP_ArmyTony", "packages/characters/pc/MCP_ArmyTony.p3d"},
@@ -47,13 +51,20 @@ static std::unordered_map<std::string, std::string> skins = {
 		{"MCP_WhiteSuitShadesTony", "packages/characters/pc/MCP_WhiteSuitShadesTony.p3d"}
 };
 
+// File name -> internal name remaps.
+static std::unordered_map<std::string, std::string> remap;
+
 static PackageRef* GetDummyPackageRef() {
 	if (playerModelPool == nullptr)
 		return nullptr;
 	return **(PackageRef***)(playerModelPool);
 }
 
-static void __fastcall SetMainCharacterPackage_Hook(void* self, void* _, char* name, bool unk) {
+static const char* __fastcall GetMainCharacterPackage_Hook(void* self, void* _) {
+	return currentPlayerModel.c_str();
+}
+
+static void __fastcall SetMainCharacterPackage_Hook(void* self, void* _, const char* name, bool unk) {
 	if (currentPlayerModel != "")
 	{
 		if (name == currentPlayerModel) {
@@ -65,8 +76,12 @@ static void __fastcall SetMainCharacterPackage_Hook(void* self, void* _, char* n
 	}
 	PackageRef* dummyChar = GetDummyPackageRef();
 	currentPlayerModel = name;
-	dummyChar->SetName(currentPlayerModel.c_str());
-	fpSetMainCharacterPackage(self, name, unk);
+	currentPlayerModelInternalName = name;
+	if (remap.find(name) != remap.end()) {
+		currentPlayerModelInternalName = remap[name];
+	}
+	dummyChar->SetName(currentPlayerModelInternalName.c_str());
+	fpSetMainCharacterPackage(self, currentPlayerModelInternalName.c_str(), unk);
 }
 
 static const char* __cdecl FindPackagePath_Hook(short resourceId) {
@@ -128,6 +143,16 @@ static void CacheSkins() {
 			{
 				std::string u8name = entry.path().stem().u8string();
 				std::string u8Path = std::filesystem::relative(entry.path(), std::filesystem::path(gameDir)).u8string();
+				std::wstring iniPath = (entry.path().parent_path() / entry.path().stem()).wstring() + L".ini";
+				if (Exists(iniPath)) {
+					mINI::INIFile file(iniPath);
+					mINI::INIStructure ini;
+					file.read(ini);
+					if (ini["general"].has("remap"))
+					{
+						remap[u8name] = ini["general"]["remap"];
+					}
+				}
 				std::replace(u8Path.begin(), u8Path.end(), '\\', '/');
 				skins[u8name] = u8Path;
 			}
@@ -176,6 +201,15 @@ void Core::Initialize() {
 		return;
 	}
 	if (MH_EnableHook(Addresses::CM_SetMainCharacterPackage) != MH_OK)
+	{
+		return;
+	}
+	if (MH_CreateHook(Addresses::CM_GetMainCharacterPackage, &GetMainCharacterPackage_Hook,
+		reinterpret_cast<LPVOID*>(&fpGetMainCharacterPackage)) != MH_OK)
+	{
+		return;
+	}
+	if (MH_EnableHook(Addresses::CM_GetMainCharacterPackage) != MH_OK)
 	{
 		return;
 	}

@@ -6,5 +6,6 @@ namespace Addresses {
 	extern void* ScarfaceAlloc;
 	extern void* CM_SetMainCharacterPackage;
 	extern void* FindPackagePath;
+	extern void* CM_GetMainCharacterPackage;
 	bool Initialize();
 }

@@ -3,6 +3,6 @@
 
 class CharacterManager {
 public:
-	PackageRef** GetMainCharacterPackage();
-	void SetMainCharacterPackage(char* packageName, bool unk);
+	PackageRef** GetMainCharacterPackageRef();
+	void SetMainCharacterPackage(const char* packageName, bool unk);
 };
