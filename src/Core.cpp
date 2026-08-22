@@ -11,12 +11,13 @@
 #include "scan.h"
 #include "sf/packageref.h"
 #include "ini.h"
+#include "sf/charactermanager.h"
 
-typedef void* (__thiscall* CHARACTERMANAGERCTOR)(void* self);
+typedef void* (__thiscall* CHARACTERMANAGERCTOR)(CharacterManager* self);
 typedef void* (__cdecl* SFALLOC)(size_t size, int type);
 typedef const char* (__cdecl* FINDPACKAGEPATH)(short resourceId);
-typedef void* (__thiscall* SETMAINCHARACTERPACKAGE)(void* self, const char* name, bool unk);
-typedef const char* (__thiscall* GETMAINCHARACTERPACKAGE)(void* self);
+typedef void* (__thiscall* SETMAINCHARACTERPACKAGE)(CharacterManager* self, const char* name, bool unk);
+typedef const char* (__thiscall* GETMAINCHARACTERPACKAGE)(CharacterManager* self);
 typedef void* (__thiscall* RENDERGAME)(void* self);
 
 static CHARACTERMANAGERCTOR fpCharacterManagerCtor = NULL;
@@ -29,7 +30,7 @@ static RENDERGAME fpRenderGame = NULL;
 static bool doAllocHook = false;
 
 static void* playerModelPool;
-static void* characterManagerInstance;
+static CharacterManager* characterManagerInstance;
 
 static std::string currentPlayerModel = "";
 static std::string currentPlayerModelInternalName = "";
@@ -53,6 +54,27 @@ static std::unordered_map<std::string, std::string> skins = {
 		{"MCP_WhiteSuitShadesTony", "packages/characters/pc/MCP_WhiteSuitShadesTony.p3d"}
 };
 
+static std::vector<std::string> vanillaSkins = {
+	"MCP_ArmyTony",
+	"MCP_Assassin",
+	"MCP_BlackSuitTony",
+	"MCP_BluePinSuitShadesTony",
+	"MCP_BluePinSuitTony",
+	"MCP_BlueSuitTony",
+	"MCP_Driver",
+	"MCP_Enforcer",
+	"MCP_GraySuitShadesTony",
+	"MCP_GraySuitTony",
+	"MCP_HawaiianShadesTony",
+	"MCP_HawaiianTony",
+	"MCP_SandyShadesTony",
+	"MCP_SandyTony",
+	"MCP_WhiteSuitTony",
+	"MCP_WhiteSuitShadesTony"
+};
+
+static std::vector<std::string> customSkins;
+
 // File name -> internal name remaps.
 static std::unordered_map<std::string, std::string> remap;
 
@@ -62,7 +84,74 @@ static PackageRef* GetDummyPackageRef() {
 	return **(PackageRef***)(playerModelPool);
 }
 
+static bool wasKeyJustPressed(int vk)
+{
+	if (vk == 0) return false;
+	static SHORT lastState[256]{};
+	SHORT state = GetAsyncKeyState(vk);
+	bool pressed = (state & 0x8000) && !(lastState[vk] & 0x8000);
+	lastState[vk] = state;
+	return pressed;
+}
+
+static int prevVanillaSkinKey = 0x74;
+static int nextVanillaSkinKey = 0x75;
+static int prevCustomSkinKey = 0x76;
+static int nextCustomSkinKey = 0x77;
+
+static int GetCurrentCustomSkinIndex() {
+	if (currentPlayerModel == "")
+		return -1;
+	auto it = std::find(customSkins.begin(), customSkins.end(), currentPlayerModel);
+	if (it == customSkins.end()) {
+		return -1;
+	}
+	return std::distance(customSkins.begin(), it);
+}
+
+static int GetCurrentVanillaSkinIndex() {
+	if (currentPlayerModel == "")
+		return -1;
+	auto it = std::find(vanillaSkins.begin(), vanillaSkins.end(), currentPlayerModel);
+	if (it == vanillaSkins.end()) {
+		return -1;
+	}
+	return std::distance(vanillaSkins.begin(), it);
+}
+
 static void __fastcall RenderGame_Hook(void* self, void* _) {
+	if (currentPlayerModel != "") {
+		if (wasKeyJustPressed(prevVanillaSkinKey)) {
+			int currentVanillaSkin = GetCurrentVanillaSkinIndex();
+			currentVanillaSkin--;
+			if (currentVanillaSkin < 0)
+				currentVanillaSkin = vanillaSkins.size() - 1;
+			characterManagerInstance->SetMainCharacterPackage(vanillaSkins[currentVanillaSkin].c_str(), false);
+		}
+		if (wasKeyJustPressed(nextVanillaSkinKey)) {
+			int currentVanillaSkin = GetCurrentVanillaSkinIndex();
+			currentVanillaSkin++;
+			if (currentVanillaSkin >= vanillaSkins.size())
+				currentVanillaSkin = 0;
+			characterManagerInstance->SetMainCharacterPackage(vanillaSkins[currentVanillaSkin].c_str(), false);
+		}
+		if (customSkins.size() > 0) {
+			if (wasKeyJustPressed(prevCustomSkinKey)) {
+				int currentCustomSkin = GetCurrentCustomSkinIndex();
+				currentCustomSkin--;
+				if (currentCustomSkin < 0)
+					currentCustomSkin = customSkins.size() - 1;
+				characterManagerInstance->SetMainCharacterPackage(customSkins[currentCustomSkin].c_str(), false);
+			}
+			if (wasKeyJustPressed(nextCustomSkinKey)) {
+				int currentCustomSkin = GetCurrentCustomSkinIndex();
+				currentCustomSkin++;
+				if (currentCustomSkin >= customSkins.size())
+					currentCustomSkin = 0;
+				characterManagerInstance->SetMainCharacterPackage(customSkins[currentCustomSkin].c_str(), false);
+			}
+		}
+	}
 	fpRenderGame(self);
 }
 
@@ -70,7 +159,7 @@ static const char* __fastcall GetMainCharacterPackage_Hook(void* self, void* _) 
 	return currentPlayerModel.c_str();
 }
 
-static void __fastcall SetMainCharacterPackage_Hook(void* self, void* _, const char* name, bool unk) {
+static void __fastcall SetMainCharacterPackage_Hook(CharacterManager* self, void* _, const char* name, bool unk) {
 	if (currentPlayerModel != "")
 	{
 		if (name == currentPlayerModel) {
@@ -112,7 +201,7 @@ static void* __cdecl SF_Alloc_Hook(size_t size, int type) {
 	return ret;
 }
 
-static void* __fastcall CharacterManagerCtor_Hook(void* self, void* _) {
+static void* __fastcall CharacterManagerCtor_Hook(CharacterManager* self, void* _) {
 	characterManagerInstance = self;
 	doAllocHook = true;
 	return fpCharacterManagerCtor(self);
@@ -161,6 +250,9 @@ static void CacheSkins() {
 				}
 				std::replace(u8Path.begin(), u8Path.end(), '\\', '/');
 				skins[u8name] = u8Path;
+				if (std::find(vanillaSkins.begin(), vanillaSkins.end(), u8name) == vanillaSkins.end()) {
+					customSkins.push_back(u8name);
+				}
 			}
 		}
 	}
